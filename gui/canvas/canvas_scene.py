@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsRectItem
+from gui.blocks.block_item import BlockItem
 from PyQt5.QtCore import Qt
 
 
@@ -16,15 +17,12 @@ class CanvasScene(QGraphicsScene):
         
     def dropEvent(self, event):
         pos = event.scenePos()
+          
+        block_type = event.mimeData().text()
         
-        
-        # create a block
-        
-        block = QGraphicsRectItem(0, 0, 100, 50) 
-        block.setFlag(QGraphicsRectItem.ItemIsMovable)
-        block.setFlag(QGraphicsRectItem.ItemIsSelectable)
-        
+        block = BlockItem(block_type)
         block.setPos(pos)
+        
         self.addItem(block)
         
         event.accept()   
