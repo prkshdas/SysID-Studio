@@ -17,5 +17,4 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         
         self.setCentralWidget(container)
-            
-            
+        
