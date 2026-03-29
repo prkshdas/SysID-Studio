@@ -11,4 +11,4 @@ class CanvasView(QGraphicsView):
         self.setRenderHints(self.renderHints())
         self.setAcceptDrops(True)
         
-        self.setDragMode(QGraphicsView.rubberBandDrag)
+        self.setDragMode(QGraphicsView.RubberBandDrag)
