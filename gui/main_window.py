@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
         scene = self.canvas_view.scene
         
         # Count blocks and connections
-        blocks = [item for item in scene.items() if hasattr(item, 'get_all_ports')]
+        blocks = [item for item in scene.items() if isinstance(item, BlockItem)]
         connections = len(scene.connections)
         
         self.connection_label.setText(f"Connections: {connections} | Blocks: {len(blocks)}")
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             self.canvas_view.scene.clear_scene()
             self.status_label.setText("Canvas cleared")
-            self._update_canvas_info()
+            # _update_canvas_info is now called automatically via signals
     
     def _zoom_in(self):
         """Zoom in the canvas"""
