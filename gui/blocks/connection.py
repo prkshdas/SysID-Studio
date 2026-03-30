@@ -1,80 +1,73 @@
 from PyQt5.QtWidgets import QGraphicsItem
 from PyQt5.QtGui import QPainter, QPen, QColor
-from PyQt5.QtCore import QLineF, Qt
+from PyQt5.QtCore import Qt, QPointF, QRectF
+
 
 class Connection(QGraphicsItem):
-    # draw a line between connecting ports
-    
     def __init__(self, source_port, target_port=None):
         super().__init__()
-        
+
         self.source_port = source_port
         self.target_port = target_port
-        self.is_temporary = target_port is None   # for drawing while connecting
-        
-        # add to source port's connections
+        self.is_temporary = target_port is None
+        self.temp_end_pos = QPointF(0, 0)
+
         if source_port:
             source_port.add_connection(self)
-            
-        # add to target port's connections if exists
         if target_port:
             target_port.add_connection(self)
-            
-        self.setZValue(-1)  # draw behind blocks
-        
-    
+
+        self.setZValue(-1)
+
     def set_target(self, target_port):
-        # set or update the target port
         if self.target_port:
             self.target_port.remove_connection(self)
-            
+
         self.target_port = target_port
         self.is_temporary = False
-        
+
         if target_port:
             target_port.add_connection(self)
-            
+
+        self.prepareGeometryChange()
         self.update()
-        
+
     def set_end_pos(self, pos):
-        # Set temporary end position (for drawing while connecting)
-        self.temp_end_pos = pos
+        self.temp_end_pos = QPointF(pos)
+        self.prepareGeometryChange()
         self.update()
-    
+
+    def _endpoints(self):
+        start = self.source_port.get_center_pos()
+        if self.is_temporary:
+            end = self.temp_end_pos
+        else:
+            end = self.target_port.get_center_pos()
+        return start, end
+
     def boundingRect(self):
-        # Calculate bounding rectangle for the connection line
-        if self.is_temporary:
-            start = self.source_port.get_center_pos()
-            end = self.temp_end_pos
-        else:
-            start = self.source_port.get_center_pos()
-            end = self.target_port.get_center_pos()
-        
-        line = QLineF(start, end)
-        rect = line.boundingRect()
-        rect.adjust(-2, -2, 2, 2)  # Add padding for pen width
+        start, end = self._endpoints()
+
+        # QRectF(QPointF, QPointF) gives a rect spanning the two points; normalize handles any direction.
+        rect = QRectF(start, end).normalized()
+
+        # pad for pen width + easier picking
+        pad = 6.0
+        rect.adjust(-pad, -pad, pad, pad)
         return rect
-    
+
     def paint(self, painter: QPainter, option, widget):
-        # Draw the connection line
+        start, end = self._endpoints()
+
         if self.is_temporary:
-            start = self.source_port.get_center_pos()
-            end = self.temp_end_pos
+            pen = QPen(QColor(120, 120, 255), 2, Qt.DashLine)
         else:
-            start = self.source_port.get_center_pos()
-            end = self.target_port.get_center_pos()
-        
-        # Line styling
-        if self.is_temporary:
-            pen = QPen(QColor(100, 100, 255), 2, Qt.DashLine)  # Blue dashed while connecting
-        else:
-            pen = QPen(QColor(100, 200, 100), 2)  # Green solid when connected
-        
+            pen = QPen(QColor(100, 200, 100), 2)
+
         painter.setPen(pen)
         painter.drawLine(start, end)
-    
+
     def disconnect(self):
-        # Disconnect this connection
         if self.source_port:
             self.source_port.remove_connection(self)
         if self.target_port:

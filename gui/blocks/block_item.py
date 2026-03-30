@@ -9,22 +9,17 @@ class BlockItem(QGraphicsItem):
         super().__init__(parent)
 
         self.block_type = block_type
-        self.width = 100
-        self.height = 50
-        self.port_count = 2 # 1 input, 1 output by default
+        self.width = 120
+        self.height = 60
 
         # Enable interaction
-        self.setFlag(QGraphicsItem.ItemIsMovable)
-        self.setFlag(QGraphicsItem.ItemIsSelectable)
-        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
-        
-        # create ports
+        self.setFlag(QGraphicsItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
+
+        # Ports (children of this item, so they move with the block)
         self.input_ports = [Port(self, "input", 0)]
         self.output_ports = [Port(self, "output", 0)]
-        
-        self.addToGroup(self.input_ports[0])
-        self.addToGroup(self.output_ports[0])
-        
 
     def boundingRect(self):
         return QRectF(0, 0, self.width, self.height)
@@ -37,20 +32,25 @@ class BlockItem(QGraphicsItem):
 
         painter.setBrush(QBrush(color))
         painter.setPen(QPen(Qt.black, 2))
-        painter.drawRect(self.boundingRect())
+        painter.drawRoundedRect(self.boundingRect(), 6, 6)
 
         # Draw text (block name)
         painter.setPen(Qt.white)
         painter.drawText(self.boundingRect(), Qt.AlignCenter, self.block_type)
-        
+
     def get_input_ports(self):
-        # get all input ports
         return self.input_ports
-    
+
     def get_output_ports(self):
-        # get all output ports
         return self.output_ports
-    
+
     def get_all_ports(self):
-        # get all ports
         return self.input_ports + self.output_ports
+
+    def itemChange(self, change, value):
+        # Ensure connections update when the block moves
+        if change == QGraphicsItem.ItemPositionHasChanged:
+            for port in self.get_all_ports():
+                for conn in list(port.connections):
+                    conn.update()
+        return super().itemChange(change, value)
