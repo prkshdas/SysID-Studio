@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QGraphicsView
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QPainter
 from .canvas_scene import CanvasScene
 import logging
 
@@ -16,8 +16,8 @@ class CanvasView(QGraphicsView):
         self.setScene(self.scene)
         
         # Rendering setup - use QGraphicsView.RenderHint enum
-        self.setRenderHint(QGraphicsView.Antialiasing, True)
-        self.setRenderHint(QGraphicsView.SmoothPixmapTransform, True)
+        self.setRenderHint(QPainter.Antialiasing, True)
+        self.setRenderHint(QPainter.SmoothPixmapTransform, True)
         
         # Drag and drop
         self.setAcceptDrops(True)
