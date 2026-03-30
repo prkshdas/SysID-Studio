@@ -1,126 +1,94 @@
-from PyQt5.QtWidgets import QGraphicsView
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QPainter
+from PyQt5.QtWidgets import QGraphicsView, QFrame
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QPainter, QDrag, QDropEvent
 from .canvas_scene import CanvasScene
 import logging
 
-logger = logging.getLogger(__name__)
-
-
 class CanvasView(QGraphicsView):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         
-        # Create and set scene
-        self.scene = CanvasScene()
+        # Configure the view
+        self._configure()
+        
+        # Set up scene
+        self.scene = CanvasScene(self)
         self.setScene(self.scene)
         
-        # Rendering setup - use QGraphicsView.RenderHint enum
-        self.setRenderHint(QPainter.Antialiasing, True)
-        self.setRenderHint(QPainter.SmoothPixmapTransform, True)
-        
-        # Drag and drop
-        self.setAcceptDrops(True)
-        
-        # View mode
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("CanvasView initialized")
+
+    def _configure(self):
+        """Set up the configuration and styling of the view."""
+        self.setRenderHint(QPainter.Antialiasing)
+        self.setRenderHint(QPainter.TextAntialiasing)
         self.setDragMode(QGraphicsView.RubberBandDrag)
-        
-        # Styling
-        self.setStyleSheet("QGraphicsView { background-color: #282828; border: none; }")
-        
-        # Zoom tracking
-        self.zoom_level = 1.0
-        self.max_zoom = 3.0
-        self.min_zoom = 0.3
-        
-        logger.info("CanvasView initialized")
-    
-    def keyPressEvent(self, event):
-        """Handle key presses"""
-        if event.key() == Qt.Key_Delete:
-            # Delete selected items
-            deleted_count = 0
-            for item in self.scene.selectedItems():
-                if hasattr(item, 'disconnect') and hasattr(item, 'source_port'):
-                    # It's a connection
-                    self.scene.remove_connection(item)
-                    deleted_count += 1
-                elif hasattr(item, 'get_all_ports'):
-                    # It's a block - delete all its connections first
-                    for port in item.get_all_ports():
-                        for conn in port.connections.copy():
-                            self.scene.remove_connection(conn)
-                    
-                    self.scene.removeItem(item)
-                    deleted_count += 1
-                    logger.info(f"Block deleted: {item.block_type}")
-            
-            if deleted_count > 0:
-                logger.info(f"Deleted {deleted_count} item(s)")
-        
-        elif event.key() == Qt.Key_Escape:
-            # Deselect all
-            self.scene.clearSelection()
-            logger.debug("All items deselected")
-        
-        elif event.key() == Qt.Key_A and event.modifiers() == Qt.ControlModifier:
-            # Select all
-            for item in self.scene.items():
-                item.setSelected(True)
-            logger.debug("All items selected")
-        
-        super().keyPressEvent(event)
-    
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setAcceptDrops(True)
+
     def wheelEvent(self, event):
-        """Handle mouse wheel zoom"""
-        # Calculate zoom factor
-        zoom_in = event.angleDelta().y() > 0
-        zoom_factor = 1.1 if zoom_in else 0.9
-        
-        # Calculate new zoom level
-        new_zoom = self.zoom_level * zoom_factor
-        
-        # Clamp zoom level
-        if self.min_zoom <= new_zoom <= self.max_zoom:
-            self.scale(zoom_factor, zoom_factor)
-            self.zoom_level = new_zoom
-            logger.debug(f"Zoom level: {self.zoom_level:.2f}x")
-        
-        event.accept()
-    
-    def mousePressEvent(self, event):
-        """Handle mouse press"""
-        super().mousePressEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        """Handle mouse release"""
-        super().mouseReleaseEvent(event)
+        """Zoom in or out on the canvas with the mouse wheel."""
+        zoom_factor = 1.15
+        if event.angleDelta().y() < 0:
+            zoom_factor = 1.0 / zoom_factor
+            
+        self.scale(zoom_factor, zoom_factor)
+        self.logger.info(f"Canvas zoomed with factor: {zoom_factor:.2f}")
+
+    def keyPressEvent(self, event):
+        """Handle key presses on the canvas."""
+        if event.key() == Qt.Key_Delete:
+            self.scene.delete_selected_items()
+            self.logger.info("Delete key pressed, selected items removed")
+        elif event.key() == Qt.Key_Space:
+            self.setDragMode(QGraphicsView.ScrollHandDrag)
+        else:
+            super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        """Reset drag mode when spacebar is released."""
+        if event.key() == Qt.Key_Space:
+            self.setDragMode(QGraphicsView.RubberBandDrag)
+        else:
+            super().keyReleaseEvent(event)
+            
+    # --- Drag and Drop Events ---
     
     def dragEnterEvent(self, event):
-        """Handle drag enter"""
-        event.accept()
-    
+        """Accept drag events if they have the correct MIME type."""
+        if event.mimeData().hasFormat('application/x-block-item'):
+            event.acceptProposedAction()
+            self.logger.debug("Drag enter event accepted")
+        else:
+            event.ignore()
+            self.logger.debug("Drag enter event ignored (invalid MIME type)")
+
     def dragMoveEvent(self, event):
-        """Handle drag move"""
-        event.accept()
-    
-    def dropEvent(self, event):
-        """Handle drop"""
-        # Map viewport coordinates to scene coordinates
-        scene_pos = self.mapToScene(event.pos())
-        
-        # Create a new event at the scene position
-        from PyQt5.QtGui import QDropEvent
-        new_event = QDropEvent(
-            event.pos(),
-            event.possibleActions(),
-            event.mimeData(),
-            event.mouseButtons(),
-            event.keyboardModifiers()
-        )
-        
-        # Temporarily update scene position
-        scene_pos_store = scene_pos
-        self.scene.dropEvent(new_event)
-        
-        event.accept()
+        """Accept drag move events."""
+        if event.mimeData().hasFormat('application/x-block-item'):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        """Handle dropping an item onto the canvas."""
+        if event.mimeData().hasFormat('application/x-block-item'):
+            # The position where the item is dropped
+            drop_pos = event.pos()
+            
+            # Convert view coordinates to scene coordinates
+            scene_pos = self.mapToScene(drop_pos)
+            
+            # Pass the scene position and MIME data to the scene's drop handler
+            self.scene.handle_drop(scene_pos, event.mimeData())
+            
+            event.acceptProposedAction()
+            self.logger.info(f"Block dropped at scene position: {scene_pos}")
+        else:
+            event.ignore()
+            self.logger.warning("Drop event ignored (invalid MIME type)")
