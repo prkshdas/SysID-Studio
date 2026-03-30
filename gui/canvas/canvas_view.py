@@ -15,9 +15,9 @@ class CanvasView(QGraphicsView):
         self.scene = CanvasScene()
         self.setScene(self.scene)
         
-        # Rendering setup
-        self.setRenderHint(self.Antialiasing, True)
-        self.setRenderHint(self.SmoothPixmapTransform, True)
+        # Rendering setup - use QGraphicsView.RenderHint enum
+        self.setRenderHint(QGraphicsView.Antialiasing, True)
+        self.setRenderHint(QGraphicsView.SmoothPixmapTransform, True)
         
         # Drag and drop
         self.setAcceptDrops(True)
